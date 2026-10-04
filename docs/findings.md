@@ -33,7 +33,7 @@ Fase 2 del análisis del repo. **Fuentes:** `verification.md`, `AGENTS.md`, `REA
 | NAM-1 | C | El vocabulario de dominio es fijo: `income` / **`outcome`** (no "expense"), categorías `suppliers, sales, operational, administrative, others` y `B2B` / `B2C`. Es igual en backend, tipos TS y variantes de UI. | `backend/app/routes.py:11-14`, `frontend/src/lib/financial-types.ts:1-3`, `frontend/src/components/dashboard/kpi-card.tsx:11` | Si se usa `expense` u otro literal, FastAPI responde 422 (`Literal` en `routes.py:252-253`) y TS da error de tipo. | lectura |
 | NAM-2 | C | Frontend: archivos en **kebab-case** (`kpi-card.tsx`) que exportan componentes **nombrados en PascalCase** (no `default`, salvo `App`). El acrónimo KPI va siempre en mayúsculas (`KPICard`, `KPIRow`, `KPIMetrics`). Las props se tipan con una `interface <Componente>Props`. | `frontend/src/components/dashboard/kpi-card.tsx:6`, `:34`, `frontend/src/components/dashboard/kpi-row.tsx:6`, `:11`, `frontend/src/lib/financial-types.ts:13`, `frontend/src/App.tsx:74` | Mezclar estilos (`KpiCard`, `KpiCard.tsx`, `export default`) rompe la búsqueda por convención y los imports nombrados existentes. | lectura |
 | NAM-3 | C | Los imports usan el alias `@/` para cruzar carpetas y rutas relativas dentro de la misma carpeta. **Los imports de tipos llevan `type`**, que es obligatorio por `verbatimModuleSyntax`. | `frontend/tsconfig.app.json:12-16`, `frontend/vite.config.ts:18-21`, `frontend/src/App.tsx:6-10`, `frontend/src/components/dashboard/kpi-row.tsx:1-2`, `frontend/src/components/dashboard/kpi-card.tsx:4` | Un import de tipo sin `type` hace fallar `tsc -b` (y por tanto `npm run build`), aunque `vite dev` siga funcionando. | lectura |
-| NAM-4 | R | **Estilo de código mixto y sin formateador.** Comillas dobles con `;` en `App.tsx`, `financial-utils.ts`, `vite.config.ts` y `eslint.config.js`. Comillas simples sin `;` en `components/**`, `main.tsx`, `financial-types.ts` y `mock-data.ts`. No hay config de Prettier en el repo. | `frontend/src/App.tsx:1`, `frontend/src/lib/financial-utils.ts:1-5`, `frontend/src/components/dashboard/kpi-card.tsx:1-4`, `frontend/src/main.tsx:1-4`; `git ls-files` no lista ningún `.prettierrc` | Si se reformatea un archivo entero, los diffs se llenan de ruido y esconden el cambio real, y además aumentan los conflictos de merge. | lectura |
+| NAM-4 | R | **Estilo de código mixto y sin formateador.** Comillas dobles con `;` en `App.tsx`, `financial-utils.ts`, `vite.config.ts` y `eslint.config.js`. Comillas simples sin `;` en `components/**`, `main.tsx`, `financial-types.ts` y `mock-data.ts`. Comillas dobles sin `;` en `lib/utils.ts`. Son tres estilos. No hay config de Prettier en el repo. | `frontend/src/App.tsx:1`, `frontend/src/lib/financial-utils.ts:1-5`, `frontend/src/components/dashboard/kpi-card.tsx:1-4`, `frontend/src/main.tsx:1-4`, `frontend/src/lib/utils.ts:1-6`; `git ls-files` no lista ningún `.prettierrc` | Si se reformatea un archivo entero, los diffs se llenan de ruido y esconden el cambio real, y además aumentan los conflictos de merge. | lectura |
 | NAM-5 | R | **Idioma de UI mixto.** Los textos de UI están en inglés, pero el mensaje de error está en español. | inglés: `frontend/src/components/dashboard/dashboard-header.tsx:15-16`, `frontend/src/components/dashboard/kpi-row.tsx:15-41`; español: `frontend/src/App.tsx:37` | Los textos nuevos salen en el idioma que elija cada contribuidor y la UI queda incoherente. | lectura |
 | NAM-6 | R | El mismo concepto tiene nombres distintos: el backend lo llama `net` y el frontend `profit`. El backend tampoco tiene equivalente de `profitPercent`. | `backend/app/routes.py:42`, `backend/app/routes.py:184`, `frontend/src/lib/financial-types.ts:16-17` | Si se migra el frontend a `/summary` (ARQ-6) sin mapear `net` → `profit`, el campo llega vacío sin ningún error (ARQ-1). | lectura |
 | NAM-7 | C | Backend: helpers en snake_case con verbo (`generate_`, `filter_`, `build_`, `summarize_`, `calculate_`, `detect_`), privados con `_` inicial y handlers `get_*`. Tipado moderno con `from __future__ import annotations`, `X \| None` y alias `Literal`. | `backend/app/routes.py:1`, `:11-15`, `:65`, `:71`, `:94`, `:150`, `:249` | Un nombre fuera de patrón hace más difícil saber qué es puro y qué es handler (ARQ-3). | lectura |
@@ -55,7 +55,7 @@ Fase 2 del análisis del repo. **Fuentes:** `verification.md`, `AGENTS.md`, `REA
 | DOC-1 | C | `README.md` y `README.es.md` son **paralelos línea a línea** (mismas secciones y numeración) y se enlazan entre sí. | `README.md:10` ↔ `README.es.md:10`; `README.md:39-50` ↔ `README.es.md:39-50` | Si se actualiza uno solo, los dos idiomas quedan contradiciéndose. | lectura |
 | DOC-2 | R | `AGENTS.md` obliga a leer `.agents/rules`, `.agents/skills` y `memory-bank/`, pero **ninguno existe**. | `AGENTS.md:6-15`; `verification.md` #20 | Un agent que sigue `AGENTS.md` no encuentra reglas y opera sin restricciones, o se inventa unas. | lectura |
 | DOC-3 | R | **El periodo está hardcodeado a 2024**, con dos variantes de texto distintas (`-` y `—`), mientras el backend genera fechas relativas a hoy. | `frontend/src/App.tsx:49`, `frontend/src/components/dashboard/dashboard-header.tsx:7`, `backend/app/routes.py:97` | La UI etiqueta mal los datos. Un agent que tome "2024" como verdad escribirá tests o filtros sobre un año en el que no hay datos. | ✅ (`verification.md` #17) |
-| DOC-4 | R | El README anuncia `Backend: http://localhost:8000`, pero `GET /` devuelve 404. Solo existen `/health`, `/docs` y `/api/...`. | `README.md:49`; `verification.md` #6 | Puede tomarse el 404 como señal de que el backend está caído y "arreglarse" algo que funciona. | ✅ (`verification.md` #6) |
+| DOC-4 | R | **Resuelto.** El README anuncia `Backend: http://localhost:8000`, pero `GET /` devuelve 404. Solo existen `/health`, `/docs` y `/api/...`. **Resolución:** `README.md` y `README.es.md` ahora incluyen la URL de `/health` y una nota que explica que el 404 de la raíz es lo esperado (ver "Validación de reglas (Fase 3)" en `verification.md`). | `README.md:49`, `README.md:51-53`, `README.es.md:51-53`; `verification.md` #6 | Puede tomarse el 404 como señal de que el backend está caído y "arreglarse" algo que funciona. | ✅ (`verification.md` #6) |
 | DOC-5 | C | `verification.md` registra el estado de verificación con una leyenda estricta: ✅ solo con ejecución, "lectura (agente)" y ❓. | `verification.md` (leyenda y tabla) | Marcar ✅ sin ejecutar invalida el registro como fuente de verdad. | lectura |
 
 ## 5. DX (experiencia de desarrollo)
@@ -75,7 +75,19 @@ Fase 2 del análisis del repo. **Fuentes:** `verification.md`, `AGENTS.md`, `REA
 
 ## 6. Reglas propuestas
 
-Propuesta de reglas para `.agents/rules/`, todavía **sin crear**. Cada regla cita los hallazgos que la motivan y el hecho concreto del repo.
+Cada regla cita los hallazgos que la motivan y el hecho concreto del repo.
+
+**Estado:** las reglas ya están en `.agents/rules/`, agrupadas por tema. La columna "Archivo de regla sugerido" refleja la propuesta original; la ubicación real es:
+
+| Archivo | Reglas |
+|---|---|
+| `api-contract.md` | R-01, R-02, R-03 |
+| `backend.md` | R-04, R-05, R-06 |
+| `frontend.md` | R-08, R-09, R-10, R-11, R-12, R-14, R-16 |
+| `environment.md` | R-17, R-18, R-19 |
+| `docs-and-verification.md` | R-15, R-20, R-21 |
+
+R-07 y R-13 no están en `.agents/rules/`: ver la sección 8.
 
 | # | Regla | Motivada por | Hecho del repo | Archivo de regla sugerido |
 |---|---|---|---|---|
@@ -90,7 +102,7 @@ Propuesta de reglas para `.agents/rules/`, todavía **sin crear**. Cada regla ci
 | R-09 | Los colores nuevos se definen como token en `index.css`, en **`:root` y en `.dark`**, y se consumen con `var(--token)` o con una utilidad mapeada en `@theme inline`. Nada de colores literales. | ARQ-9, ARQ-10 | Los tokens están en `index.css:5-76`. `--chart-income` no está en `@theme` (`index.css:100-104`), así que solo funciona con `var()`. | `frontend.md` |
 | R-10 | No edites a mano `components/ui/`. Antes de ejecutar `npx shadcn add`, revisa `components.json` (`cssVariables: false`). | ARQ-11 | Los componentes de `ui/` son generados (`card.tsx:8`). `components.json:10` contradice el uso de tokens. | `frontend.md` |
 | R-11 | Archivos en kebab-case, componentes con export nombrado en PascalCase, acrónimo `KPI` en mayúsculas, alias `@/` entre carpetas y `type` en los imports de tipos. | NAM-2, NAM-3 | `kpi-card.tsx:6,34`; `verbatimModuleSyntax` en `tsconfig.app.json:16`. | `frontend.md` |
-| R-12 | Respeta el estilo (comillas y `;`) **del archivo que editas**. No reformatees archivos completos ni ejecutes un formateador global. | NAM-4 | Conviven dos estilos (`App.tsx:1` frente a `kpi-card.tsx:1`) y no hay config de Prettier. | `code-style.md` |
+| R-12 | Respeta el estilo (comillas y `;`) **del archivo que editas**. No reformatees archivos completos ni ejecutes un formateador global. | NAM-4 | Conviven tres estilos (`App.tsx:1`, `kpi-card.tsx:1` y `lib/utils.ts:1`) y no hay config de Prettier. | `frontend.md` |
 | R-13 | Los textos de UI nuevos van en inglés, porque es el idioma mayoritario. El mensaje en español de `App.tsx:37` es la excepción conocida y no se toma como modelo. | NAM-5 | Ver `dashboard-header.tsx:15-16` y `kpi-row.tsx:15-41` frente a `App.tsx:37`. | `code-style.md` (**requiere decisión del equipo**) |
 | R-14 | No hardcodees años ni periodos, y no uses `mock-data.ts` como fallback ni como fixture de UI. Un error de la API se muestra como error. | DOC-3, TST-5 | Ver `App.tsx:49`, `dashboard-header.tsx:7` y `mock-data.ts` sin importar. La discrepancia está confirmada (`verification.md` #17). | `frontend.md` |
 | R-15 | No afirmes que los tests, el build o la ejecución pasan sin haberlos ejecutado. Los resultados se registran en `verification.md` con su leyenda (✅ solo con ejecución). | TST-4, DOC-5, DX-6 | Los tests nunca se han ejecutado (`verification.md` #21-22) y no hay CI. | `verification.md` (regla) |
@@ -117,3 +129,14 @@ Propuesta de reglas para `.agents/rules/`, todavía **sin crear**. Cada regla ci
 | "Usar variables de entorno para el seed y los puertos" | Es una preferencia de diseño: ningún hecho del repo muestra que haga falta. |
 | "El README no describe la arquitectura" | Genérico. Lo relevante ya está cubierto por DOC-2, DOC-4 y DX-6. |
 | `.gitignore` duplicado en la raíz y en `frontend/` | No se encontró ningún conflicto entre ambos: las reglas son compatibles. |
+
+---
+
+## 8. Pendientes
+
+Reglas propuestas que **no** se han llevado a `.agents/rules/` porque les falta una decisión o una verificación. Cuando se resuelva el motivo, se añaden al archivo de regla indicado y se borran de esta lista.
+
+| Regla | Qué propone | Por qué está pendiente | Qué la desbloquea | Destino previsto |
+|---|---|---|---|---|
+| R-07 | En el frontend, agrupar por mes leyendo el string `YYYY-MM` de `create_date`, en vez de `new Date()` con getters locales. Los tests de agregación incluyen un caso con día 01. | Se basa en ARQ-7, que es un **bug sin confirmar**. Solo se dedujo leyendo `frontend/src/lib/financial-utils.ts:8` y `:42`, y nadie lo ha ejecutado. Convertirlo en regla obligaría a cambiar código por un fallo que quizá no existe. | Un test de `computeMonthlyData` con `create_date: "2024-02-01"` ejecutado con `TZ=America/Bogota` (o en un navegador en zona UTC−x). Si el movimiento aparece en enero, el bug queda confirmado: se registra en `verification.md` y R-07 entra en la regla. | `.agents/rules/frontend.md` |
+| R-13 | Los textos nuevos de UI van en inglés. | Falta una **decisión del equipo** sobre el idioma de la UI (NAM-5). Los textos actuales están en inglés (`dashboard-header.tsx:15-16`, `kpi-row.tsx:15-41`), pero el mensaje de error está en español (`App.tsx:37`) y el proyecto es bilingüe (`README.md` / `README.es.md`). Elegir uno por mayoría sería imponer una decisión de producto. | Que el equipo decida el idioma (inglés, español o i18n). Después hay que alinear `App.tsx:37` o los demás textos según lo que se elija. | `.agents/rules/frontend.md` |

@@ -48,6 +48,9 @@ If you need to target a different backend origin, copy `frontend/.env.example` t
 - Frontend: http://localhost:5173
 - Backend: http://localhost:8000
 - API documentation: http://localhost:8000/docs
+- Backend healthcheck: http://localhost:8000/health (returns `{"status":"ok"}`)
+
+> **Note:** opening the backend root (http://localhost:8000/) returns `404 {"detail":"Not Found"}`. This is expected: the API defines no `/` route, only `/health`, `/docs` and `/api/...`. Use `/health` to check that the backend is up.
 
 ---
 

@@ -48,6 +48,9 @@ Si necesitas apuntar a otro backend, copia `frontend/.env.example` como `.env` y
 - Frontend: http://localhost:5173
 - Backend: http://localhost:8000
 - Documentación API: http://localhost:8000/docs
+- Healthcheck del backend: http://localhost:8000/health (devuelve `{"status":"ok"}`)
+
+> **Nota:** abrir la raíz del backend (http://localhost:8000/) devuelve `404 {"detail":"Not Found"}`. Es lo esperado: la API no define ninguna ruta `/`, solo `/health`, `/docs` y `/api/...`. Usa `/health` para comprobar que el backend está levantado.
 
 ---
 

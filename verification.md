@@ -57,7 +57,32 @@ En Codespaces, las URLs `localhost` se sustituyen por las URLs de los puertos re
 | 24 | La ejecución funciona en local (Windows). | — | ❓ | No hay Docker instalado en el Windows local. Solo está verificado en Codespaces. |
 | 25 | `depends_on` garantiza que el backend esté listo antes que el frontend. | `docker-compose.yml:11-12` | ❓ | No hay healthcheck en compose, así que solo ordena el arranque. No se probó una condición de carrera. |
 | 26 | El debugger en el 5678 acepta conexiones (attach). | `backend/Dockerfile:12` | ❓ | El puerto se reenvía (#2), pero nadie hizo attach. |
+| 27 | La regla R-12 (respetar el estilo del archivo que se edita) no está en `.agents/rules` porque su destino, `code-style.md`, no existe. Por eso no le llega a ningún agente. | `.agents/rules/frontend.md:9`, `.agents/rules/frontend.md:83-87`, `docs/findings.md:86` | ❌ | Afirmación incorrecta del agente, que solo miró el destino declarado en la fila R-12 de `docs/findings.md`. **Corrección:** R-12 sí está en `frontend.md:85-87`, comprobado por la usuaria con `Select-String`, y `frontend.md:9` la lista como origen. El destino de R-12 en `docs/findings.md` se corrigió a `frontend.md`. |
 
 ## Contradicciones con el mapa anterior
 
 Ninguna. Todas las verificaciones en Codespaces coinciden con lo leído en los archivos. El 404 en `GET /` confirma que no existe ruta raíz, algo que el mapa ya reflejaba al no listarla.
+
+## Validación de reglas (Fase 3)
+
+Prueba de que las reglas de `.agents/rules` dirigen el trabajo del agente sin que nadie las mencione en el prompt.
+
+**Tarea dada:** añadir al README una nota con la URL del healthcheck y aclarar que la raíz `/` de la API devuelve 404. El prompt nombraba solo `README.md`, se dio con contexto limpio (`/clear`) y no mencionaba las reglas.
+
+**Reglas que dirigieron el trabajo**
+
+| Regla | Qué hizo el agente por ella |
+|---|---|
+| `docs-and-verification.md` §2 | Sacó los valores de la nota de filas ya verificadas en este archivo: #5 (`GET /health` → `{"status":"ok"}`) y #6 (`GET /` → `404 {"detail":"Not Found"}`), las dos ✅ en Codespaces. |
+| `docs-and-verification.md` §3 | Editó también `README.es.md`, sin que se lo pidieran, traducido y en la misma posición. Comprobó el resultado con `git diff --stat` (3 líneas añadidas en cada README) y `grep -c "^## "` (3 secciones en ambos). |
+| `environment.md` §3 | Trató las URLs del README como parte del contrato del entorno y usó el puerto 8000 publicado en `docker-compose.yml:19`. |
+
+**Evidencia:**
+- `git diff README.md README.es.md` muestra el mismo bloque en las dos versiones, justo después de la línea de la documentación de la API.
+- Los textos `{"status":"ok"}` y `404 {"detail":"Not Found"}` son los mismos que registran las filas #5 y #6.
+
+**Resultado:** pasó a la primera, sin correcciones.
+
+**Limitación:** esta tarea solo ejercitó `docs-and-verification.md` y `environment.md`. Las reglas `api-contract.md`, `backend.md` y `frontend.md` no se han probado.
+
+**Estado:** cambios sin commit.
