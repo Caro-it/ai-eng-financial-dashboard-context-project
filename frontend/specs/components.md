@@ -48,6 +48,19 @@ Son errores que detecta la propia UI, como un rango de fechas invertido o un umb
 - Las fechas van en `YYYY-MM-DD` (`V §1`, "Notas comunes").
 - Todos los parámetros se tipan con `param-types.ts`.
 
+### 0.5 Inputs con borrador (D-H)
+
+`DateFilter` y `ThresholdInput` guardan internamente el texto que escribe el usuario (el borrador):
+- La prop `value` es el valor **aplicado**, el último que se emitió y con el que se pide a la API.
+- Un valor inválido se queda en el input, con su mensaje de error de validación (§0.3), y **no** se emite.
+- Si `value` cambia desde fuera, el borrador se sincroniza con `value` y se borra el error.
+
+### 0.6 Rutas y formato
+
+- **Rutas:** las rutas de la columna "Archivo" son relativas a `frontend/src/`. La carpeta existe y ya contiene `components/dashboard/` y `components/ui/`.
+- **Moneda:** `formatCurrency` (`frontend/src/lib/financial-utils.ts:69-76`: USD, `en-US`, sin decimales). Es la que usa hoy el dashboard (`kpi-row.tsx:16`, `income-outcome-chart.tsx:42`).
+- **Porcentaje:** `formatPercent` (`frontend/src/lib/financial-utils.ts:78-80`). Recibe el valor ya multiplicado por 100 y muestra 1 decimal (`102.0%`).
+
 ---
 
 ## 1. Funcionalidad 1: filtro de fechas en el dashboard
@@ -64,7 +77,7 @@ Son errores que detecta la propia UI, como un rango de fechas invertido o un umb
 
 | Prop | Tipo | Obligatoria | Descripción |
 |---|---|---|---|
-| `value` | `DateRangeFilter` | sí | Rango aplicado ahora. Si a una propiedad le falta valor, su input aparece vacío. |
+| `value` | `DateRangeFilter` | sí | Rango aplicado ahora. Si a una propiedad le falta valor, su input aparece vacío. Los inputs muestran un borrador interno; cuando `value` cambia desde fuera, el borrador se sincroniza con él y se borra el error (§0.5). |
 | `onChange` | `(range: DateRangeFilter) => void` | sí | Se llama al cambiar cualquiera de los dos inputs, sin botón "Aplicar", y **solo** si el rango resultante es válido (D-A). Cada input vacío se omite como propiedad del objeto. |
 | `facets` | `FacetsResponse \| null` | sí | Respuesta de `/api/metrics/facets`. De aquí solo se usan `min_date` y `max_date`. Es `null` mientras carga o si falla. |
 | `facetsLoading` | `boolean` | opcional | `true` mientras carga facets. |
@@ -87,10 +100,16 @@ Son errores que detecta la propia UI, como un rango de fechas invertido o un umb
    - Solo `start_date`: devuelve desde esa fecha, incluida, hasta el final de los datos. ✅ ejecutado (`V E6`: el último `create_date` coincide con `max_date` de `V E1`).
    - Solo `end_date`: devuelve desde el principio hasta esa fecha, incluida. ✅ ejecutado (`V E10`: el primer `create_date` coincide con `min_date` de `V E1`). La inclusividad del extremo final, solo por código (`routes.py:116-121`, `V §1`).
 3. **Rango disponible.** Junto a los inputs se muestra el texto "Datos disponibles del `min_date` al `max_date`", tomado de `facets`. Nunca se usan fechas literales: el mock regenera las fechas respecto a hoy (`V §1`, "Notas comunes"; `V 2.2`, ✅ ejecutado `V E1`; `.agents/rules/frontend.md` §2).
-4. **Rango invertido.** Si `start_date` es posterior a `end_date`, no se llama a `onChange` ni a la API, y se muestra un error de validación junto a los inputs. Las dos fechas tienen el formato `YYYY-MM-DD`, así que se pueden comparar como texto. Esta regla es necesaria porque la API no valida el orden: el código filtra sin comprobarlo (`V 2.1c`), y qué responde la API con un rango invertido es ❓.
+4. **Rango invertido.** Si `start_date` es posterior a `end_date`, no se llama a `onChange` ni a la API, y se muestra junto a los inputs el error "La fecha de inicio no puede ser posterior a la fecha de fin". Las dos fechas se quedan en el borrador (§0.5). Las dos fechas tienen el formato `YYYY-MM-DD`, así que se pueden comparar como texto. Esta regla es necesaria porque la API no valida el orden: el código filtra sin comprobarlo (`V 2.1c`), y qué responde la API con un rango invertido es ❓.
 5. **Si falla facets.** Los inputs siguen funcionando y el texto del rango se sustituye por un aviso. Facets no condiciona el filtro: `/api/metrics` acepta las fechas sin consultar facets (`V §1.1`).
 6. **Alcance del filtro.** El rango aplicado se envía a **todas** las peticiones de datos del dashboard, incluida `/api/metrics/alerts` (`V 2.1b`: `/alerts` acepta `start_date` y `end_date` según el esquema). No se envía a `/facets`, que no acepta parámetros (`V §1.2`). El rango es propio del dashboard: la página B2B vs B2C tiene el suyo y no lo comparten. Ambas vistas empiezan con los dos inputs vacíos (D-B).
-7. **Fechas fuera de los datos.** Un rango sin datos no es un error: la API devuelve `[]` (✅ ejecutado `V E5`). Si `/api/metrics` devuelve `[]`, el dashboard muestra un único mensaje "Sin datos en el rango seleccionado" en lugar de los KPIs y gráficos existentes. `DateFilter` sigue visible para poder cambiar el rango (D-E). La tabla de alertas muestra su propio estado vacío (§2.4, regla 5).
+7. **Fechas fuera de los datos.** Un rango sin datos no es un error: la API devuelve `[]` (✅ ejecutado `V E5`). Si `/api/metrics` devuelve `[]`, el dashboard muestra un único mensaje "Sin datos en el rango seleccionado" en lugar de los KPIs y gráficos existentes. `DateFilter`, `ThresholdInput` y `AlertsTable` siguen visibles (D-E, D-K). La tabla de alertas muestra su propio estado vacío (§2.4, regla 5).
+8. **Sin límites en los inputs.** No se usan `min` ni `max`: se puede elegir cualquier fecha. Un rango sin datos da el estado vacío de la regla 7 (`V E5`).
+9. **Disposición del dashboard (D-K).** De arriba abajo: cabecera actual (`App.tsx:49`), `DateFilter`, KPIs (`App.tsx:57-59`), gráficos existentes (`App.tsx:61-67`), `ThresholdInput` y, a continuación, `AlertsTable`.
+10. **Carga y error de `/api/metrics`.** Se mantiene el comportamiento actual de `App.tsx`:
+    - Cargando: `loading` (`App.tsx:26`) se pasa a `KPIRow`, `IncomeOutcomeChart` y `ProfitPercentChart`, que pintan su skeleton (`App.tsx:58`, `:65-66`).
+    - Error: bloque de error encima de los KPIs (`App.tsx:51-55`) con el texto "No se pudo cargar la informacion financiera. Revisa la API de backend." (`App.tsx:36-38`). Los KPIs muestran `—` (`kpi-row.tsx:16`) y los gráficos, "No data available to display" (`income-outcome-chart.tsx:73-75`, `profit-percent-chart.tsx:74-76`). Un error no muestra el mensaje de la regla 7.
+    - Hoy la petición se hace una sola vez, al montar (`App.tsx:29-43`). Con el filtro se relanza, y cada petición pasa por esos mismos estados: `loading` a `true` al empezar y el error de la petición anterior se descarta.
 
 ### 1.5 Renderizado condicional de `DateFilter`
 
@@ -102,7 +121,7 @@ Los inputs están siempre habilitados. Lo que cambia según el estado es el text
 | Error (`facetsError`) | Aviso: "No se pudo cargar el rango disponible" | Habilitados (regla 5) |
 | Vacío | No aplica: `min_date` y `max_date` son obligatorios y no nulos (`V §1.2`) | — |
 | Con datos | "Datos disponibles del `min_date` al `max_date`" | Habilitados |
-| Validación (regla 4) | Sin cambios | Mensaje de error junto a los inputs; no se emite `onChange` |
+| Validación (regla 4) | Sin cambios | "La fecha de inicio no puede ser posterior a la fecha de fin" junto a los inputs; no se emite `onChange` |
 
 ---
 
@@ -112,7 +131,7 @@ Los inputs están siempre habilitados. Lo que cambia según el estado es el text
 
 | Componente | Archivo | Responsabilidad |
 |---|---|---|
-| `ThresholdInput` | `components/dashboard/threshold-input.tsx` | Input numérico del umbral. Valida que esté entre 0.01 y 1.0 y emite solo valores válidos. |
+| `ThresholdInput` | `components/dashboard/threshold-input.tsx` | Input numérico del umbral, como fracción (`0.3`) con paso `0.01`. Valida que esté entre 0.01 y 1.0 y emite solo valores válidos, al perder el foco o al pulsar Enter. |
 | `AlertsTable` | `components/dashboard/alerts-table.tsx` | Pinta las alertas en 4 columnas y sus estados cargando, error, vacío y con datos. |
 
 ### 2.2 Props
@@ -121,15 +140,15 @@ Los inputs están siempre habilitados. Lo que cambia según el estado es el text
 
 | Prop | Tipo | Obligatoria | Descripción |
 |---|---|---|---|
-| `value` | `number` | sí | Umbral aplicado ahora, como fracción (`AlertsParams.threshold`). `App.tsx` lo inicializa a `0.3`. |
-| `onChange` | `(threshold: number) => void` | sí | Se llama solo con un valor en [0.01, 1.0]. |
+| `value` | `number` | sí | Umbral aplicado ahora, como fracción (`AlertsParams.threshold`). `App.tsx` lo inicializa a `0.3`. El input muestra un borrador interno; cuando `value` cambia desde fuera, el borrador se sincroniza con él y se borra el error (§0.5). |
+| `onChange` | `(threshold: number) => void` | sí | Se llama al perder el foco o al pulsar Enter, no en cada tecla y sin debounce, y solo con un valor en [0.01, 1.0] (D-I). |
 
 **`AlertsTable`**
 
 | Prop | Tipo | Obligatoria | Descripción |
 |---|---|---|---|
 | `alerts` | `AlertsResponse \| null` | sí | Respuesta de `/api/metrics/alerts`. Es `null` antes de la primera respuesta o si hay error. |
-| `threshold` | `number` | sí | Umbral con el que se hizo la petición. Se muestra en el mensaje del estado vacío. |
+| `threshold` | `number` | sí | Umbral de la **última petición lanzada**. Se muestra en el mensaje del estado vacío. Mientras esa petición carga, la tabla muestra su skeleton. |
 | `loading` | `boolean` | opcional | `true` mientras la petición está en curso. |
 | `error` | `string \| null` | opcional | Mensaje si la petición falló. |
 
@@ -144,6 +163,8 @@ Los inputs están siempre habilitados. Lo que cambia según el estado es el text
 | `group_by` | **No se envía.** Se usa el default `"month"`. | `V §1.3` #1 (esquema) |
 | `business_type` | **No se envía.** Mezcla B2B y B2C. | `V §1.3` #4 |
 
+**Cuándo se pide (D-I):** al montar `App.tsx`, cada vez que cambia el rango del dashboard y cada vez que `ThresholdInput` emite. Un cambio de umbral relanza **solo** `/api/metrics/alerts`, no `/api/metrics`.
+
 ### 2.4 Reglas
 
 1. **Columnas, en este orden.** La respuesta se pinta en el orden de la API (cronológico por `period`, `V §1.3` por código), sin reordenar.
@@ -151,17 +172,17 @@ Los inputs están siempre habilitados. Lo que cambia según el estado es el text
    | Rótulo | Campo de `AlertEntry` | Formato | Evidencia |
    |---|---|---|---|
    | Período | `period` | Tal cual. Con `group_by=month` es `YYYY-MM`. | ✅ ejecutado `V E2`; `V 2.3a` |
-   | Gasto del período | `outcome_total` | Moneda | ✅ ejecutado `V E2`; `V 2.3b` |
-   | Media de períodos anteriores | `baseline_average` | Moneda | `V 2.3c` |
-   | Incremento % | `increase_ratio` × 100 | Porcentaje. `formatPercent` (`src/lib/financial-utils.ts:78-79`) espera el valor ya multiplicado. | ✅ ejecutado `V E2` (1.0201 → ~102 %); `V 2.3d` |
+   | Gasto del período | `outcome_total` | `formatCurrency` (§0.6) | ✅ ejecutado `V E2`; `V 2.3b` |
+   | Media de períodos anteriores | `baseline_average` | `formatCurrency` (§0.6) | `V 2.3c` |
+   | Incremento % | `increase_ratio` × 100 | Porcentaje. `formatPercent` (`src/lib/financial-utils.ts:78-80`) espera el valor ya multiplicado. | ✅ ejecutado `V E2` (1.0201 → ~102 %); `V 2.3d` |
 
 2. **Rótulo de la tercera columna.** **No** se rotula "media móvil de 3 períodos". La API calcula la media de **todos** los períodos anteriores del rango filtrado (`V 2.3c`, ❌ respecto al brief; solo por código `routes.py:224-227`). Por eso, cambiar `start_date` cambia este valor. La UI muestra `baseline_average` tal como lo devuelve la API, rotulado "Media de períodos anteriores", y el frontend no recalcula una media móvil de 3. Queda como pregunta para el PM, sin bloquear la implementación (D-G).
 3. **Umbral validado por la UI.** El input acepta valores de 0.01 a 1.0, con 0.3 por defecto. La API solo exige un mínimo de 0 y no tiene máximo: `threshold=50` devuelve 200 con `[]` (✅ ejecutado `V E3`; `V 2.4a`). Con un valor fuera de rango, o un input vacío o no numérico:
    - no se llama a `onChange` ni a la API;
    - se muestra un error de validación junto al input;
    - la tabla conserva el último resultado válido, con su `threshold`.
-4. **Escala del umbral.** El umbral es una fracción en la misma escala que `increase_ratio`: 0.3 = 30 % (✅ ejecutado `V E2` + `V E3`; `V 2.4c`). Si el input se muestra en %, la conversión ×100 / ÷100 la hace la UI antes de emitir `onChange`.
-5. **Estado vacío explícito.** Si la respuesta es `[]`, la tabla no desaparece: mantiene la cabecera y muestra "Ningún período supera el umbral del {threshold × 100} %" (✅ ejecutado `V E3`: `[]` con 200).
+4. **Escala del umbral.** El umbral es una fracción en la misma escala que `increase_ratio`: 0.3 = 30 % (✅ ejecutado `V E2` + `V E3`; `V 2.4c`). El input se muestra y se edita como fracción (`0.3`), con paso `0.01`, y el valor se emite y se envía tal cual, sin conversión (D-I).
+5. **Estado vacío explícito.** Si la respuesta es `[]`, la tabla no desaparece: mantiene la cabecera y muestra "Ningún período supera el umbral del {Math.round(threshold × 100)} %", con el porcentaje como entero redondeado; con `0.3`, "Ningún período supera el umbral del 30 %" (✅ ejecutado `V E3`: `[]` con 200).
 6. **Caso límite: un solo período.** Un rango que abarca un solo mes nunca produce alertas, porque el primer período no tiene baseline (`V §1.3`, por código `routes.py:226`). Se muestra el estado vacío normal, no un error. En vivo → ❓ (`V §4` #11).
 7. **Filtro de fechas.** Cuando cambia el rango de la Funcionalidad 1, se repite la petición con el `threshold` vigente (§1.4, regla 6).
 8. **Caso límite: alertas que desaparecen al filtrar.** Al acotar el rango de fechas pueden desaparecer alertas que se veían sin filtro: el baseline solo usa los períodos del rango, y el primer período del rango no tiene baseline. No es un error: si no queda ninguna, se muestra el estado vacío normal (regla 5). ✅ ejecutado `V E9`: con `start_date=2026-06-01`, `[]`, cuando sin filtro `2026-06` y `2026-08` eran alertas.
@@ -181,7 +202,7 @@ Los inputs están siempre habilitados. Lo que cambia según el estado es el text
 
 | Estado | Qué se pinta |
 |---|---|
-| Normal | El input con el valor vigente |
+| Normal | El input con el borrador, que coincide con el valor vigente |
 | Validación | Mensaje "El umbral debe estar entre 0.01 y 1.0" junto al input (regla 3) |
 
 ---
@@ -192,12 +213,14 @@ Los inputs están siempre habilitados. Lo que cambia según el estado es el text
 
 | Componente | Archivo | Responsabilidad |
 |---|---|---|
-| `BusinessTypeComparison` | `components/dashboard/business-type-comparison.tsx` | Compone la página: `DateFilter`, dos `CategoryIncomePanel` en paralelo y debajo `BusinessTypeTotalsChart`. Solo recibe datos por props. |
+| `BusinessTypeComparison` | `components/dashboard/business-type-comparison.tsx` | Compone la página: `DateFilter`, dos `CategoryIncomePanel` en paralelo y debajo `BusinessTypeTotalsChart`. Recibe las respuestas por props (no hace peticiones) y deriva de ellas `b2bTotal`, `b2cTotal` y el `error` del gráfico (§3.4, regla 9). |
 | `DateFilter` | El mismo de la Funcionalidad 1 | Lo reutiliza con las mismas props (§1.2). |
 | `CategoryIncomePanel` | `components/dashboard/category-income-panel.tsx` | Tabla de ingresos por categoría de un `business_type`, con el porcentaje calculado en frontend. |
-| `BusinessTypeTotalsChart` | `components/dashboard/business-type-totals-chart.tsx` | Gráfico único con el total de ingresos de B2B frente al de B2C. |
+| `BusinessTypeTotalsChart` | `components/dashboard/business-type-totals-chart.tsx` | Gráfico único con el total de ingresos de B2B frente al de B2C. Recharts `BarChart`, barras verticales, dos barras (§3.4, regla 7). |
 
 **Navegación (D-C).** No hay router ni dependencias nuevas. `App.tsx` mantiene un estado de vista con dos valores, `'dashboard'` y `'comparison'`, y un selector con dos botones para cambiar de una a otra. La vista inicial es `'dashboard'`.
+
+**Carga de la vista (D-J).** `App.tsx` lanza las dos llamadas a `categories/top` la **primera vez** que se entra en `'comparison'`, no al montar. Al cambiar de vista se conservan los datos y el rango de cada vista, y no se vuelve a pedir hasta que cambie el rango de esa vista.
 
 ### 3.2 Props
 
@@ -230,10 +253,10 @@ Los inputs están siempre habilitados. Lo que cambia según el estado es el text
 
 | Prop | Tipo | Obligatoria | Descripción |
 |---|---|---|---|
-| `b2bTotal` | `number \| null` | sí | Suma de `total_amount` de `b2bCategories`. Vale `0` si la respuesta es `[]` y `null` si no hay respuesta. |
+| `b2bTotal` | `number \| null` | sí | Suma de `total_amount` de `b2bCategories`, calculada por `BusinessTypeComparison`. Vale `0` si la respuesta es `[]` y `null` si no hay respuesta. |
 | `b2cTotal` | `number \| null` | sí | Igual, para B2C. |
-| `loading` | `boolean` | opcional | `true` si alguna de las dos peticiones está en curso. |
-| `error` | `string \| null` | opcional | Mensaje si falla cualquiera de las dos peticiones. Indica qué grupo (B2B, B2C o ambos) no se pudo cargar (D-D). |
+| `loading` | `boolean` | opcional | `true` si alguna de las dos peticiones está en curso (`b2bLoading \|\| b2cLoading`). |
+| `error` | `string \| null` | opcional | Mensaje si falla cualquiera de las dos peticiones; lo compone `BusinessTypeComparison` (§3.4, regla 9). Indica qué grupo no se pudo cargar (D-D). |
 
 ### 3.3 Endpoint
 
@@ -251,7 +274,7 @@ No se usan `/api/metrics/b2b` ni `/b2c`: devuelven movimientos crudos, y `catego
 ### 3.4 Reglas
 
 1. **Paneles independientes.** Cada panel hace su propia llamada y tiene su propio estado. Uno puede estar cargando, con error o vacío mientras el otro tiene datos.
-2. **Tabla por panel.** Tiene tres columnas: Categoría (`category`), Total de ingresos (`total_amount`, en moneda) y Porcentaje. Las filas van en el orden de la API, descendente por `total_amount` (✅ ejecutado `V E4`).
+2. **Tabla por panel.** Tiene tres columnas: Categoría (`category`), Total de ingresos (`total_amount`, con `formatCurrency`) y Porcentaje (con `formatPercent`, 1 decimal, igual que en alertas; §0.6). Las filas van en el orden de la API, descendente por `total_amount` (✅ ejecutado `V E4`).
 3. **Porcentaje calculado en frontend.** Es `total_amount / Σ total_amount de las filas devueltas × 100`. La API no lo devuelve (✅ ejecutado `V E4`; `V 2.6`; decisión `V D1`).
    - **Supuesto documentado:** esa suma es el total real del grupo mientras el número de categorías de `/facets` sea ≤ `limit`. Hoy son 5 (✅ ejecutado `V E1`) y `limit = 5`, así que se cumple (`V D1.a`).
    - Si facets llegara a tener más de 5 categorías, el porcentaje sería sobre las filas mostradas y no sobre el total del grupo. Esta condición depende del mock, no del contrato (`V 2.6`).
@@ -262,9 +285,21 @@ No se usan `/api/metrics/b2b` ni `/b2c`: devuelven movimientos crudos, y `catego
 5. **Vacío por panel.** Con 0 filas, el panel muestra su estado vacío y **no calcula porcentaje**. Con al menos 1 fila, el denominador es > 0, porque no hay filas con total 0 (regla 4).
 6. **Origen de las categorías.** El brief pide sacarlas de facets, pero facets devuelve una lista plana y global, sin separar por `business_type` (✅ ejecutado `V E1`; `V 2.2`). Resolución: las categorías de cada panel salen de **`categories/top`**, y facets solo se usa para el texto del rango de fechas de `DateFilter`.
 7. **Gráfico de totales.** El total de cada grupo es la suma de `total_amount` de las filas de su panel (regla 3).
+   - **Librería:** Recharts, ya instalado (`frontend/package.json:21`, `"recharts": "^3.8.1"`) y usado por los gráficos actuales (`income-outcome-chart.tsx:5-14`). `BarChart` con **barras verticales** (el `layout` por defecto de Recharts) y **dos barras**, B2B y B2C. Sin dependencias nuevas. Colores con tokens CSS (`.agents/rules/frontend.md` §3).
    - Si **ambos** totales son 0, se muestra un estado vacío en lugar del gráfico.
    - Si **solo uno** es 0, el gráfico se muestra con ese valor a 0.
 8. **Filtro de fechas.** Se reutiliza `DateFilter` con las mismas reglas de la Funcionalidad 1 (§1.4). Un cambio de rango válido relanza las dos llamadas. El rango de esta vista es independiente del del dashboard (D-B).
+9. **Datos derivados en `BusinessTypeComparison`.** `App.tsx` hace las peticiones y pasa las respuestas. `BusinessTypeComparison` deriva:
+   - `b2bTotal` y `b2cTotal`: suma de `total_amount` de `b2bCategories` y `b2cCategories`; `0` con `[]` y `null` si la respuesta es `null`.
+   - `error` del gráfico, a partir de `b2bError` y `b2cError`:
+
+     | `b2bError` | `b2cError` | `error` |
+     |---|---|---|
+     | con valor | `null` | "No se pudieron cargar los ingresos de B2B" |
+     | `null` | con valor | "No se pudieron cargar los ingresos de B2C" |
+     | con valor | con valor | "No se pudieron cargar los ingresos de B2B y B2C" |
+     | `null` | `null` | `null` |
+10. **Prioridad de estados del gráfico.** Cargando, error, vacío y con datos, en ese orden. Si un panel falló y el otro sigue cargando, se muestra **cargando**. Si algún total es `null` sin `loading` ni `error`, también se trata como cargando.
 
 ### 3.5 Renderizado condicional
 
@@ -281,8 +316,8 @@ No se usan `/api/metrics/b2b` ni `/b2c`: devuelven movimientos crudos, y `catego
 
 | Estado | Qué se pinta |
 |---|---|
-| Cargando (alguna petición en curso) | Skeleton del gráfico |
-| Error (falla cualquiera de las dos peticiones) | Mensaje de error con `error`, que indica qué grupo no se pudo cargar. No se pinta un gráfico parcial (D-D). |
+| Cargando (alguna petición en curso, aunque la otra haya fallado; o algún total `null` sin `loading` ni `error`) | Skeleton del gráfico |
+| Error (falla cualquiera de las dos peticiones y ninguna está en curso) | Mensaje de error con `error`, que indica qué grupo no se pudo cargar (regla 9). No se pinta un gráfico parcial (D-D). |
 | Vacío (`b2bTotal === 0` y `b2cTotal === 0`) | Mensaje de estado vacío en lugar del gráfico |
 | Con datos (al menos un total > 0) | Gráfico con las dos barras. La de valor 0 se pinta a 0. |
 
@@ -312,7 +347,11 @@ Las llamadas de referencia están en `V §4`.
 | D-A | `DateFilter` emite `onChange` al cambiar cualquiera de los dos inputs, sin botón "Aplicar", y solo si el rango resultante es válido. | Un paso menos para el usuario. La validación del rango (§1.4, regla 4) evita peticiones con un rango invertido. | §1.2 |
 | D-B | Cada vista tiene su propio rango de fechas: el dashboard y la página B2B vs B2C no lo comparten. Ambas empiezan con los dos inputs vacíos. | Las vistas son independientes; inputs vacíos = sin filtro, que es el comportamiento actual de la API (`V §1`, "Notas comunes"). | §1.4 regla 6, §3.2, §3.4 regla 8 |
 | D-C | Sin router ni dependencias nuevas. `App.tsx` mantiene un estado de vista `'dashboard'` \| `'comparison'` y un selector con dos botones. La vista inicial es `'dashboard'`. | `package.json` no tiene router y `App.tsx` es una sola vista (`V §3`). Solo se añaden dependencias cuando el cambio lo necesita (`.agents/rules/environment.md` §2). | §3.1 |
-| D-D | Si falla cualquiera de las dos peticiones, `BusinessTypeTotalsChart` no pinta un gráfico parcial: muestra un mensaje de error que indica qué grupo no se pudo cargar. Se añade la prop `error: string \| null`. | Un gráfico con un solo grupo daría una comparación engañosa. | §3.2, §3.5 |
-| D-E | Si `/api/metrics` devuelve `[]` por el filtro, el dashboard muestra un único mensaje "Sin datos en el rango seleccionado" en lugar de los KPIs y gráficos existentes. `DateFilter` sigue visible. | Los KPIs y gráficos actuales no tienen estado vacío. Con `DateFilter` visible se puede salir del rango vacío. | §1.4 regla 7 |
+| D-D | Si falla cualquiera de las dos peticiones, `BusinessTypeTotalsChart` no pinta un gráfico parcial: muestra un mensaje de error que indica qué grupo no se pudo cargar. Se añade la prop `error: string \| null`. Textos: "No se pudieron cargar los ingresos de B2B", "… de B2C" y "… de B2B y B2C"; los compone `BusinessTypeComparison`. | Un gráfico con un solo grupo daría una comparación engañosa. | §3.2, §3.4 regla 9, §3.5 |
+| D-E | Si `/api/metrics` devuelve `[]` por el filtro, el dashboard muestra un único mensaje "Sin datos en el rango seleccionado" en lugar de los KPIs y gráficos existentes. `DateFilter`, `ThresholdInput` y `AlertsTable` siguen visibles. | Los KPIs no tienen estado vacío (con `[]` mostrarían `$0`), y los gráficos solo tienen un genérico "No data available to display" (`income-outcome-chart.tsx:73-75`, `profit-percent-chart.tsx:74-76`). Con `DateFilter` visible se puede salir del rango vacío. | §1.4 reglas 7 y 9 |
 | D-F | Ante cambios rápidos de filtro, solo se aplica la respuesta de la petición más reciente; las anteriores se descartan. El mecanismo queda a criterio de la implementación. | No hay `AbortController` (`V §3`): una respuesta antigua que llegue tarde podría pisar a la nueva. | §0.1 (y por tanto §1.3, §2.3, §3.3) |
 | D-G | La UI muestra `baseline_average` tal como lo devuelve la API, rotulado "Media de períodos anteriores". El frontend no recalcula una media móvil de 3. Queda como pregunta para el PM, sin bloquear la implementación. | La API calcula una media acumulada (`V 2.3c`). La ventana del baseline sigue pendiente con el PM (`V`, "Pendiente de decisión del PM"). | §2.4 regla 2 |
+| D-H | `DateFilter` y `ThresholdInput` guardan un borrador interno; `value` es el valor aplicado. Un valor inválido se queda en el input con su error y no se emite. Si `value` cambia desde fuera, el borrador se sincroniza y se borra el error. | Sin borrador, un input controlado solo por `value` no podría mostrar un valor inválido junto a su error. | §0.5, §1.2, §2.2 |
+| D-I | El umbral se muestra y se edita como fracción (`0.3`), con paso `0.01`. `ThresholdInput` emite al perder el foco o al pulsar Enter, sin debounce. Un cambio de umbral relanza solo `/api/metrics/alerts`. | Misma escala que la API y que el mensaje de validación "entre 0.01 y 1.0". Emitir al confirmar evita una petición por tecla. `/api/metrics` no depende del umbral. | §2.2, §2.3, §2.4 reglas 4-5 |
+| D-J | Las llamadas de B2B vs B2C se lanzan la primera vez que se entra en `'comparison'`. Al cambiar de vista se conservan datos y rango de cada vista; solo se vuelve a pedir cuando cambia el rango. | No se pide lo que no se ve, y volver a una vista no repite peticiones. | §3.1 |
+| D-K | Dashboard, de arriba abajo: `DateFilter`, KPIs, gráficos existentes, `ThresholdInput` y `AlertsTable`. Con "Sin datos en el rango seleccionado", `DateFilter`, `ThresholdInput` y `AlertsTable` siguen visibles. | El filtro va antes de lo que filtra; las alertas tienen su propio estado vacío. | §1.4 reglas 7 y 9 |

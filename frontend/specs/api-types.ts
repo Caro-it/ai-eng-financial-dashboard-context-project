@@ -97,7 +97,8 @@ export interface AlertEntry {
   /**
    * Incremento relativo: (outcome_total - baseline_average) / baseline_average.
    * Es una FRACCIÓN, no un porcentaje: 0.35 = 35 %. Para mostrarlo en %, multiplicar por 100.
-   * Siempre mayor que el threshold enviado (comparación estricta). Redondeado a 4 decimales.
+   * Supera el threshold enviado (comparación estricta) ANTES de redondearse a 4 decimales,
+   * así que el valor recibido puede parecer igual al umbral. Solo por código.
    * Obligatorio, no admite null.
    */
   increase_ratio: number

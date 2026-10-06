@@ -1,11 +1,11 @@
 // Tipos de parámetros de query, derivados de frontend/specs/openapi.snapshot.json.
 // Evidencia y estado de verificación: frontend/specs/verification.md.
 //
-// Sobre null: se respeta el esquema. Los parámetros con anyOf [..., null] admiten null
-// (business_type); los que no lo tienen, no (threshold, group_by, operation_type, limit).
-// Excepción: start_date y end_date también son anyOf [string, null] en el esquema,
-// pero DateRangeFilter los define como string por decisión explícita de la spec.
-// En la query string, null equivale a omitir el parámetro.
+// Sobre null: en el esquema, start_date, end_date y business_type son anyOf [tipo, null].
+// En una query string no se envía null: se omite el parámetro. Por eso, en todos los
+// parámetros opcionales, el null del esquema se modela como omisión, es decir, como
+// propiedad opcional (?) sin null. threshold, group_by, operation_type y limit no
+// admiten null en el esquema.
 //
 // Solo tipos: sin fetch, funciones ni componentes.
 
@@ -23,9 +23,10 @@ export interface DateRangeFilter {
    */
   start_date?: string
   /**
-   * Fecha final, incluida en el rango. Formato YYYY-MM-DD.
+   * Fecha final, incluida en el rango (solo por código: el filtrado sí está verificado en vivo). Formato YYYY-MM-DD.
    * Opcional; si se omite, el rango llega hasta max_date de /facets (verificado en vivo).
-   * Si es anterior a start_date, la API no valida el orden: devolvería [] (sin verificar en vivo).
+   * Si es anterior a start_date, la API no valida el orden (por código); su respuesta está
+   * sin verificar en vivo. La UI bloquea el rango invertido antes de llamar.
    */
   end_date?: string
 }
@@ -38,7 +39,7 @@ export interface AlertsParams extends DateRangeFilter {
    * Hay alerta si increase_ratio > threshold (comparación estricta).
    * Opcional. Default 0.3.
    * Límites en la API: mínimo 0 (inclusivo), SIN máximo. Con 50, la API devuelve 200 y [] (verificado en vivo).
-   * El rango 0.01–1.0 del brief no lo impone la API: si se quiere, hay que aplicarlo en la UI.
+   * El rango 0.01–1.0 del brief no lo impone la API: lo aplica la UI, que siempre envía un valor en ese rango.
    */
   threshold?: number
   /**
@@ -50,9 +51,10 @@ export interface AlertsParams extends DateRangeFilter {
   /**
    * Filtra los movimientos por tipo de negocio antes de agregar.
    * Valores: 'B2B' | 'B2C', en mayúsculas.
-   * Opcional y admite null; si se omite o es null, mezcla ambos.
+   * Opcional; si se omite, mezcla ambos.
+   * El esquema admite null, que equivale a omitir el parámetro.
    */
-  business_type?: BusinessType | null
+  business_type?: BusinessType
 }
 
 /** Parámetros de query de GET /api/metrics/categories/top. */
@@ -73,7 +75,8 @@ export interface TopCategoriesParams extends DateRangeFilter {
   /**
    * Filtra los movimientos por tipo de negocio antes de agregar.
    * Valores: 'B2B' | 'B2C', en mayúsculas.
-   * Opcional y admite null; si se omite o es null, mezcla ambos.
+   * Opcional; si se omite, mezcla ambos.
+   * El esquema admite null, que equivale a omitir el parámetro.
    */
-  business_type?: BusinessType | null
+  business_type?: BusinessType
 }
