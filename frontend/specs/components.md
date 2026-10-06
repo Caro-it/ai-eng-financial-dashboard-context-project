@@ -78,14 +78,14 @@ Son errores que detecta la propia UI, como un rango de fechas invertido o un umb
 |---|---|---|---|
 | `GET /api/metrics/facets` | ninguno (el endpoint no acepta parámetros) | Una vez, al montar `App.tsx` | `V §1.2`; ✅ ejecutado `V E1` |
 | `GET /api/metrics` | `start_date?`, `end_date?` (`DateRangeFilter`) | Al montar y cada vez que `onChange` emite | `V §1.1`; `start_date` ✅ ejecutado `V E6` |
-| `GET /api/metrics/alerts` | `DateRangeFilter` + `threshold` (ver §2.3) | Igual que la anterior | `V §1.3`; fechas en `/alerts` ❓ (`V 2.1b`) |
+| `GET /api/metrics/alerts` | `DateRangeFilter` + `threshold` (ver §2.3) | Igual que la anterior | `V §1.3`; fechas en `/alerts` ✅ ejecutado `V E9` (`V 2.1b`) |
 
 ### 1.4 Reglas
 
 1. **Dos inputs opcionales.** Envían `start_date` y `end_date` en `YYYY-MM-DD`. Un input vacío significa omitir ese parámetro (`V §1`, "Notas comunes": si se omiten ambos, no se filtra; código `routes.py:112-113`).
 2. **Un solo input relleno.** Se envía solo ese parámetro:
    - Solo `start_date`: devuelve desde esa fecha, incluida, hasta el final de los datos. ✅ ejecutado (`V E6`: el último `create_date` coincide con `max_date` de `V E1`).
-   - Solo `end_date`: devuelve desde el principio hasta esa fecha, incluida. Solo por código (`routes.py:116-121`, `V §1`) → ❓.
+   - Solo `end_date`: devuelve desde el principio hasta esa fecha, incluida. ✅ ejecutado (`V E10`: el primer `create_date` coincide con `min_date` de `V E1`). La inclusividad del extremo final, solo por código (`routes.py:116-121`, `V §1`).
 3. **Rango disponible.** Junto a los inputs se muestra el texto "Datos disponibles del `min_date` al `max_date`", tomado de `facets`. Nunca se usan fechas literales: el mock regenera las fechas respecto a hoy (`V §1`, "Notas comunes"; `V 2.2`, ✅ ejecutado `V E1`; `.agents/rules/frontend.md` §2).
 4. **Rango invertido.** Si `start_date` es posterior a `end_date`, no se llama a `onChange` ni a la API, y se muestra un error de validación junto a los inputs. Las dos fechas tienen el formato `YYYY-MM-DD`, así que se pueden comparar como texto. Esta regla es necesaria porque la API no valida el orden: el código filtra sin comprobarlo (`V 2.1c`), y qué responde la API con un rango invertido es ❓.
 5. **Si falla facets.** Los inputs siguen funcionando y el texto del rango se sustituye por un aviso. Facets no condiciona el filtro: `/api/metrics` acepta las fechas sin consultar facets (`V §1.1`).
@@ -140,7 +140,7 @@ Los inputs están siempre habilitados. Lo que cambia según el estado es el text
 | Parámetro | Valor enviado | Evidencia |
 |---|---|---|
 | `threshold` | El valor de `ThresholdInput`, **siempre explícito**. Así el umbral del mensaje vacío es el que usó la API. | `V §1.3` #0 |
-| `start_date` / `end_date` | Los del filtro de la Funcionalidad 1, si los hay | `V §1.3` #2-3; ❓ en vivo (`V 2.1b`) |
+| `start_date` / `end_date` | Los del filtro de la Funcionalidad 1, si los hay | `V §1.3` #2-3; ✅ ejecutado `V E9` (`V 2.1b`) |
 | `group_by` | **No se envía.** Se usa el default `"month"`. | `V §1.3` #1 (esquema) |
 | `business_type` | **No se envía.** Mezcla B2B y B2C. | `V §1.3` #4 |
 
@@ -164,6 +164,7 @@ Los inputs están siempre habilitados. Lo que cambia según el estado es el text
 5. **Estado vacío explícito.** Si la respuesta es `[]`, la tabla no desaparece: mantiene la cabecera y muestra "Ningún período supera el umbral del {threshold × 100} %" (✅ ejecutado `V E3`: `[]` con 200).
 6. **Caso límite: un solo período.** Un rango que abarca un solo mes nunca produce alertas, porque el primer período no tiene baseline (`V §1.3`, por código `routes.py:226`). Se muestra el estado vacío normal, no un error. En vivo → ❓ (`V §4` #11).
 7. **Filtro de fechas.** Cuando cambia el rango de la Funcionalidad 1, se repite la petición con el `threshold` vigente (§1.4, regla 6).
+8. **Caso límite: alertas que desaparecen al filtrar.** Al acotar el rango de fechas pueden desaparecer alertas que se veían sin filtro: el baseline solo usa los períodos del rango, y el primer período del rango no tiene baseline. No es un error: si no queda ninguna, se muestra el estado vacío normal (regla 5). ✅ ejecutado `V E9`: con `start_date=2026-06-01`, `[]`, cuando sin filtro `2026-06` y `2026-08` eran alertas.
 
 ### 2.5 Renderizado condicional
 
@@ -241,7 +242,7 @@ Se hacen dos peticiones **en paralelo** a `GET /api/metrics/categories/top`, una
 | Parámetro | Panel B2B | Panel B2C | Evidencia |
 |---|---|---|---|
 | `operation_type` | `'income'`, **siempre explícito** | `'income'`, **siempre explícito** | El default de la API es `"outcome"` (`V §1.4` #0, esquema; `V 2.5a`) |
-| `business_type` | `'B2B'` | `'B2C'` | Enum en mayúsculas (`V §1.4` #4; `V 2.5c`). Que filtre de verdad → ❓ |
+| `business_type` | `'B2B'` | `'B2C'` | Enum en mayúsculas (`V §1.4` #4; `V 2.5c`). Filtra de verdad: ✅ ejecutado `V E8` = `V E4` + `V E7` |
 | `limit` | `5` | `5` | Entero 1–20 (`V §1.4` #1; `V 2.5b`) |
 | `start_date` / `end_date` | Los del `DateFilter`, si los hay | Igual | `V §1.4` #2-3; aceptados ✅ ejecutado `V E5` |
 
@@ -295,13 +296,13 @@ Las llamadas de referencia están en `V §4`.
 
 | # | Afirmación de esta spec | Dónde se usa | Estado actual | Cómo cerrarlo |
 |---|---|---|---|---|
-| P1 | Solo `end_date` devuelve desde el principio hasta esa fecha, incluida | §1.4 regla 2 | Solo por código (`V 2.1`) | `V §4` #1 |
-| P2 | `start_date` y `end_date` filtran en `/alerts` | §1.4 regla 6, §2.3 | Solo esquema (`V 2.1b`) | `V §4` #11 / #12 |
+| P1 | Solo `end_date` devuelve desde el principio hasta esa fecha, incluida | §1.4 regla 2 | ✅ Cerrado: ✅ ejecutado `V E10` (con `end_date=2025-12-31`: del `min_date` 2025-10-02 al 2025-12-27). Salvedad: no hay registros en el día límite, así que la inclusividad de `end_date` sigue solo por código. | — (inclusividad: `V §4` #1 con una fecha que tenga registros) |
+| P2 | `start_date` y `end_date` filtran en `/alerts` | §1.4 regla 6, §2.3 | ✅ Cerrado: ✅ ejecutado `V E9` (`V 2.1b`) | — |
 | P3 | Respuesta de la API con un rango invertido. No afecta a la UI, que lo bloquea antes. | §1.4 regla 4 | ❓ (`V 2.1c`) | `V §4` #2 |
-| P4 | `baseline_average` es una media acumulada y no móvil de 3 | §2.4 regla 2 | ❌ frente al brief, solo por código. `V E2` no lo distingue. | `V §4` #12 |
+| P4 | `baseline_average` es una media acumulada y no móvil de 3 | §2.4 regla 2 | ❌ frente al brief. Verificado por código, coherente con la ejecución (`V E9`). Ni `V E2` ni `V E9` distinguen por sí solos una media acumulada de una móvil de 3. | `V §4` #12 |
 | P5 | Un rango de un solo período devuelve `[]` | §2.4 regla 6 | Solo por código | `V §4` #11 |
-| P6 | `business_type` filtra de verdad en `categories/top` | §3.3, §3.4 regla 1 | `V E4` no se comparó con la llamada sin filtro (`V 2.5c`) | `V §4` #18 |
-| P7 | Las categorías y totales de **B2C** income | §3.4 reglas 4-5 | Solo se ha llamado a B2B (`V E4`) | Llamar con `operation_type=income&business_type=B2C&limit=5` |
+| P6 | `business_type` filtra de verdad en `categories/top` | §3.3, §3.4 regla 1 | ✅ Cerrado: ✅ ejecutado `V E8` = `V E4` + `V E7`, céntimo a céntimo (`V 2.5c`) | — |
+| P7 | Las categorías y totales de **B2C** income | §3.4 reglas 4-5 | ✅ Cerrado: ✅ ejecutado `V E7` (`sales` y `others`, 2 filas) | — |
 | P8 | Forma real del 422. Hoy el bloque de error muestra un mensaje genérico. | §0.2 | ❓ (`V §1.7`) | `V §4` #4 |
 
 ### Decisiones tomadas
