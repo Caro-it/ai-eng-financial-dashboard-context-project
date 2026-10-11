@@ -66,7 +66,9 @@ export function IncomeOutcomeChart({ data, loading }: IncomeOutcomeChartProps) {
   return (
     <Card className="border-border/60">
       <CardHeader className="pb-4">
-        <CardTitle className="text-base font-semibold">Income vs. Outcome</CardTitle>
+        <CardTitle className="text-base font-semibold">
+          <h2>Income vs. Outcome</h2>
+        </CardTitle>
         <CardDescription>Monthly revenue and expenditure evolution</CardDescription>
       </CardHeader>
       <CardContent>
@@ -76,7 +78,12 @@ export function IncomeOutcomeChart({ data, loading }: IncomeOutcomeChartProps) {
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={280}>
-            <LineChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+            <LineChart
+              data={data}
+              margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
+              title="Income vs. Outcome by month"
+              desc="Line chart comparing monthly income (solid line) and outcome (dashed line) across the period."
+            >
               <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" strokeOpacity={0.6} />
               <XAxis
                 dataKey="month"
@@ -93,6 +100,7 @@ export function IncomeOutcomeChart({ data, loading }: IncomeOutcomeChartProps) {
               />
               <Tooltip content={<CustomTooltip />} />
               <Legend
+                iconType="plainline"
                 formatter={(value) => (
                   <span className="text-xs text-muted-foreground capitalize">{value}</span>
                 )}
@@ -112,6 +120,7 @@ export function IncomeOutcomeChart({ data, loading }: IncomeOutcomeChartProps) {
                 name="outcome"
                 stroke="var(--chart-outcome)"
                 strokeWidth={2}
+                strokeDasharray="5 5"
                 dot={{ r: 3, fill: 'var(--chart-outcome)', strokeWidth: 0 }}
                 activeDot={{ r: 5, strokeWidth: 0 }}
               />
