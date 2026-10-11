@@ -58,6 +58,40 @@ describe("computeKPIs", () => {
     const metrics = computeKPIs(onlyOutcomes);
     expect(metrics.profitPercent).toBe(0);
   });
+
+  it("returns all values as 0 for an empty list", () => {
+    const metrics = computeKPIs([]);
+
+    expect(metrics).toEqual({
+      totalIncome: 0,
+      totalOutcome: 0,
+      profit: 0,
+      profitPercent: 0,
+    });
+  });
+
+  it("returns negative profit and profitPercent when outcome exceeds income", () => {
+    const lossMovements: FinancialMovement[] = [
+      {
+        create_date: "2024-04-10",
+        amount: 200,
+        operation_type: "income",
+        category: "sales",
+        business_type: "B2C",
+      },
+      {
+        create_date: "2024-04-12",
+        amount: 500,
+        operation_type: "outcome",
+        category: "suppliers",
+        business_type: "B2B",
+      },
+    ];
+
+    const metrics = computeKPIs(lossMovements);
+    expect(metrics.profit).toBe(-300);
+    expect(metrics.profitPercent).toBe(-150);
+  });
 });
 
 describe("computeMonthlyData", () => {
@@ -101,6 +135,69 @@ describe("computeMonthlyData", () => {
       profitPercent: 100,
     });
   });
+
+  it("returns 0 profitPercent for a month with only outcome", () => {
+    const onlyOutcomes: FinancialMovement[] = [
+      {
+        create_date: "2024-03-15",
+        amount: 400,
+        operation_type: "outcome",
+        category: "operational",
+        business_type: "B2B",
+      },
+    ];
+    const monthlyData = computeMonthlyData(onlyOutcomes);
+
+    expect(monthlyData).toHaveLength(1);
+    expect(monthlyData[0].profitPercent).toBe(0);
+  });
+
+  it("returns an empty list for an empty list", () => {
+    expect(computeMonthlyData([])).toEqual([]);
+  });
+
+  it("sums several movements of the same type in the same month", () => {
+    const sameMonthMovements: FinancialMovement[] = [
+      {
+        create_date: "2024-05-10",
+        amount: 400,
+        operation_type: "income",
+        category: "sales",
+        business_type: "B2B",
+      },
+      {
+        create_date: "2024-05-12",
+        amount: 600,
+        operation_type: "income",
+        category: "sales",
+        business_type: "B2C",
+      },
+      {
+        create_date: "2024-05-14",
+        amount: 100,
+        operation_type: "outcome",
+        category: "suppliers",
+        business_type: "B2B",
+      },
+      {
+        create_date: "2024-05-16",
+        amount: 150,
+        operation_type: "outcome",
+        category: "operational",
+        business_type: "B2B",
+      },
+    ];
+    const monthlyData = computeMonthlyData(sameMonthMovements);
+
+    expect(monthlyData).toEqual([
+      {
+        month: "May 2024",
+        income: 1000,
+        outcome: 250,
+        profitPercent: 75,
+      },
+    ]);
+  });
 });
 
 describe("formatters", () => {
@@ -110,5 +207,17 @@ describe("formatters", () => {
 
   it("formats percent with one decimal", () => {
     expect(formatPercent(15.555)).toBe("15.6%");
+  });
+
+  it("formats negative currency", () => {
+    expect(formatCurrency(-1234.56)).toBe("-$1,235");
+  });
+
+  it("formats zero currency", () => {
+    expect(formatCurrency(0)).toBe("$0");
+  });
+
+  it("formats negative percent with one decimal", () => {
+    expect(formatPercent(-12.34)).toBe("-12.3%");
   });
 });
