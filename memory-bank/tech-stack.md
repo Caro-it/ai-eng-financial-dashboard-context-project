@@ -32,12 +32,12 @@ Las versiones de `package.json` son rangos (`^`, `~`). La versión instalada rea
 
 | Componente | Evidencia | Estado |
 |---|---|---|
-| React `^19.2.4` | `frontend/package.json:19-20` | lectura |
+| React `^19.2.4` (SPA con Vite; **no es Next.js**) | `frontend/package.json:19-20` | lectura |
 | Vite `^8.0.4` + `@vitejs/plugin-react` | `frontend/package.json:30`, `:41`, `frontend/vite.config.ts:8` | ✅ dev server en el 5173 (`verification.md` #14) |
 | Proxy de Vite: `/api` → `http://backend:8000` | `frontend/vite.config.ts:11-15` | lectura (`verification.md` #13) |
 | Alias `@/` → `src/` | `frontend/vite.config.ts:18-21`, `frontend/tsconfig.app.json:12-14` | lectura |
 | Tailwind CSS v4 (`@tailwindcss/vite`) con tokens CSS en `index.css` | `frontend/package.json:26`, `:38`, `frontend/vite.config.ts:8`, `frontend/src/index.css:5-76` | lectura (`docs/findings.md` ARQ-9) |
-| Recharts `^3.8.1` (gráficos) | `frontend/package.json:21` | lectura |
+| Recharts `^3.8.1` (gráficos), en un chunk de carga diferida desde `b96a275` | `frontend/package.json:21` | ✅ chunk `LineChart` de 342.29 kB en el build (`verification.md` #28) |
 | Componentes generados por shadcn en `components/ui/` (`class-variance-authority`, `clsx`, `tailwind-merge`, `lucide-react`) | `frontend/components.json`, `frontend/package.json:16-18`, `:22`; `frontend/src/lib/utils.ts:1-6` | lectura (`docs/findings.md` ARQ-11) |
 | URL del backend configurable con `VITE_API_BASE_URL` (opcional) | `frontend/.env.example:1-4`, `frontend/src/App.tsx:13` | lectura (`verification.md` #12) |
 
@@ -56,8 +56,8 @@ Las versiones de `package.json` son rangos (`^`, `~`). La versión instalada rea
 | Herramienta | Evidencia | Estado |
 |---|---|---|
 | pytest + pytest-cov + httpx (`TestClient`) | `backend/requirements.txt:4-6`, `backend/tests/test_routes.py:9`, `backend/tests/conftest.py:5-7` | ❓ nunca ejecutado (`verification.md` #21) |
-| Vitest `^4.1.4` + `@vitest/coverage-v8` | `frontend/package.json:11-13`, `:31`, `:42` | ❓ nunca ejecutado (`verification.md` #22) |
-| ESLint 9 + `typescript-eslint` + plugins de React | `frontend/package.json:9`, `:25`, `:33-35`, `:40` | ❓ nunca ejecutado (`environment.md` §1) |
-| `npm run build` = `tsc -b && vite build` (es el único typecheck) | `frontend/package.json:8`; `docs/findings.md` DX-8 | ❓ nunca ejecutado (`environment.md` §1) |
+| Vitest `^4.1.4` + `@vitest/coverage-v8` | `frontend/package.json:11-13`, `:31`, `:42` | ✅ 13 tests pasan, en Codespaces y por Carolina (`verification.md` #22) |
+| ESLint 9 + `typescript-eslint` + plugins de React | `frontend/package.json:9`, `:25`, `:33-35`, `:40` | ✅ sin errores, en Codespaces y por Carolina (`verification.md` #29) |
+| `npm run build` = `tsc -b && vite build` (es el único typecheck) | `frontend/package.json:8`; `docs/findings.md` DX-8 | ✅ pasa sin advertencias desde `b96a275`, en Codespaces y por Carolina (`verification.md` #28) |
 | `tsconfig.app.json` sin `"strict"` declarado | `frontend/tsconfig.app.json:2-26` | ❓ valor efectivo sin comprobar (`docs/findings.md` DX-7) |
 | Formateador (Prettier u otro) | no hay config en el repo (`docs/findings.md` NAM-4) | lectura |

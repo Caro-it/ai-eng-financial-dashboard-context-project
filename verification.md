@@ -4,12 +4,14 @@ Registro de qué afirmaciones sobre la arquitectura del repo están comprobadas,
 
 **Leyenda de estado**
 
-- ✅ Verificado ejecutando la app (`docker compose up --build` en GitHub Codespaces).
+- ✅ Verificado ejecutando (por defecto, la app con `docker compose up --build` en GitHub Codespaces). La última columna indica quién lo ejecutó, cómo y en qué entorno.
 - **verificado por lectura (agente)**: comprobado solo leyendo archivos, sin ejecutar nada.
 - ❌ Contradicho por la ejecución (se indica la corrección).
 - ❓ Nadie lo ha comprobado todavía.
 
 > Entorno: la ejecución solo está verificada en **GitHub Codespaces**. En el Windows local no hay Docker instalado, así que no hay verificación local.
+>
+> Las filas #22 y #28-35 las ejecutó **Carolina (la usuaria) en Codespaces con Docker Compose** el 2026-10-10 y el 2026-10-11, sobre la rama `feature/agent-skills`. No las ejecutó ningún agente. Para que la app cargara datos hizo falta un arreglo de red temporal (ver #35).
 
 ## Cómo ejecutar
 
@@ -22,7 +24,8 @@ Registro de qué afirmaciones sobre la arquitectura del repo están comprobadas,
 | Healthcheck | http://localhost:8000/health | `backend/app/routes.py:243-245` |
 | Debugger (debugpy) | puerto 5678 | `docker-compose.yml:20`, `backend/Dockerfile:12` |
 | Tests backend | `pytest` dentro de `backend/` (sin verificar) | `backend/requirements.txt:4-5`, `backend/tests/test_routes.py` |
-| Tests frontend | `npm run test` dentro de `frontend/` (sin verificar) | `frontend/package.json:11` |
+| Tests frontend | `docker compose exec frontend npm run test` (verificado, #22) | `frontend/package.json:11`, `.agents/rules/environment.md` §1 |
+| Build y lint frontend | `docker compose exec frontend npm run build` / `npm run lint` (verificado, #28-29) | `frontend/package.json:8-9`, `.agents/rules/environment.md` §1 |
 | Override de la URL del backend (opcional) | copiar `frontend/.env.example` a `.env` y definir `VITE_API_BASE_URL` | `frontend/.env.example:1-4`, `README.md:45-46` |
 
 En Codespaces, las URLs `localhost` se sustituyen por las URLs de los puertos reenviados.
@@ -50,14 +53,22 @@ En Codespaces, las URLs `localhost` se sustituyen por las URLs de los puertos re
 | 17 | La cabecera muestra un periodo fijo de 2024, pero el backend genera fechas relativas a hoy. | `frontend/src/App.tsx:49`, `frontend/src/components/dashboard/dashboard-header.tsx:7`, `backend/app/routes.py:97` | ✅ | Discrepancia confirmada visualmente en Codespaces. Es un defecto conocido, todavía sin corregir. |
 | 18 | El tipo TS `FinancialMovement` replica a mano el modelo Pydantic. | `frontend/src/lib/financial-types.ts:5-11`, `backend/app/routes.py:22-27` | verificado por lectura (agente) | Comparación manual de campos. |
 | 19 | La agregación mensual está duplicada en backend y frontend. | `backend/app/routes.py:161-187`, `frontend/src/lib/financial-utils.ts:36-67` | verificado por lectura (agente) | Lectura. |
-| 20 | `AGENTS.md` exige `.agents/rules`, `.agents/skills` y `memory-bank/`. Existen `.agents/rules/` (5 archivos) y `memory-bank/` (3 archivos); solo falta `.agents/skills/`. | `AGENTS.md:6-15` | verificado por lectura (agente) | `ls` de los tres directorios: `.agents/rules/` y `memory-bank/` existen; `.agents/skills/` no. **Actualizado:** antes decía que no existía ninguno, algo que era cierto antes de las Fases 3 y 4. |
+| 20 | `AGENTS.md` exige `.agents/rules`, `.agents/skills` y `memory-bank/`, y los tres existen: `.agents/rules/` (5 archivos), `.agents/skills/` (`accessibility`, `vercel-react-best-practices`, `vitest`) y `memory-bank/` (4 archivos). La skill interna `dashboard-pre-merge-check` está en `.skills/`, no en `.agents/skills/`. | `AGENTS.md:6-15`, `skills-lock.json` | verificado por lectura (agente) | `ls` de los directorios en la rama `feature/agent-skills`. **Actualizado (2026-10-11):** antes decía que faltaba `.agents/skills/`; se añadió en los commits `690e9f0` y `b0b73f1`. |
 | 21 | Los tests del backend (pytest) pasan. | `backend/tests/test_routes.py:9-174` | ❓ | Nadie los ha ejecutado. |
-| 22 | Los tests del frontend (Vitest) pasan. | `frontend/package.json:11`, `frontend/src/lib/financial-utils.test.ts` | ❓ | Nadie los ha ejecutado. |
+| 22 | Los tests del frontend (Vitest) pasan. | `frontend/package.json:11`, `frontend/src/lib/financial-utils.test.ts` | ✅ | Carolina, `docker compose exec frontend npm run test` en Codespaces: 5 pasan en `690e9f0` (línea base), `f76fdfc` y `b96a275`; **13 pasan** en `e57cf40`, que añade 8 tests con la skill `vitest`. |
 | 23 | La app funciona fuera de Docker (`npm run dev` + uvicorn en el host). | `frontend/vite.config.ts:13` | ❓ | Sin verificar. Probablemente falla, porque `backend` no resuelve fuera de la red de Compose. No hay Docker local para comparar. |
 | 24 | La ejecución funciona en local (Windows). | — | ❓ | No hay Docker instalado en el Windows local. Solo está verificado en Codespaces. |
 | 25 | `depends_on` garantiza que el backend esté listo antes que el frontend. | `docker-compose.yml:11-12` | ❓ | No hay healthcheck en compose, así que solo ordena el arranque. No se probó una condición de carrera. |
 | 26 | El debugger en el 5678 acepta conexiones (attach). | `backend/Dockerfile:12` | ❓ | El puerto se reenvía (#2), pero nadie hizo attach. |
 | 27 | La regla R-12 (respetar el estilo del archivo que se edita) no está en `.agents/rules` porque su destino, `code-style.md`, no existe. Por eso no le llega a ningún agente. | `.agents/rules/frontend.md:9`, `.agents/rules/frontend.md:83-87`, `docs/findings.md:86` | ❌ | Afirmación incorrecta del agente, que solo miró el destino declarado en la fila R-12 de `docs/findings.md`. **Corrección:** R-12 sí está en `frontend.md:85-87`, comprobado por la usuaria con `Select-String`, y `frontend.md:9` la lista como origen. El destino de R-12 en `docs/findings.md` se corrigió a `frontend.md`. |
+| 28 | El build del frontend (`tsc -b && vite build`, que es el único typecheck) pasa. | `frontend/package.json:8` | ✅ | Carolina, `docker compose exec frontend npm run build` en Codespaces. `690e9f0` (línea base) y `f76fdfc`: pasa con 1 advertencia (chunk de 584.26 kB, mayor de 500 kB). `b96a275`: sin advertencias; chunk principal de 187.74 kB y Recharts en un chunk diferido (`LineChart`, 342.29 kB). `e57cf40`: sin advertencias. |
+| 29 | El lint del frontend no da errores. | `frontend/package.json:9` | ✅ | Carolina, `docker compose exec frontend npm run lint` en Codespaces: sin errores en `690e9f0`, `f76fdfc` y `b96a275`; exit code 0 en `e57cf40`. |
+| 30 | El dashboard no tiene incidencias de accesibilidad automáticas. | `frontend/src/App.tsx`, `frontend/src/components/dashboard/` | ✅ | Carolina, en el navegador sobre la app en Codespaces: Lighthouse Accessibility 100 y axe DevTools 0 incidencias (WCAG 2.1 AA y mejores prácticas), en `690e9f0` y en `f76fdfc`. No se volvió a medir tras `b96a275` ni `e57cf40`. |
+| 31 | Los cambios de la skill `accessibility` se ven y funcionan como se espera. | commit `f76fdfc` (5 archivos) | ✅ | Carolina, a mano en Codespaces: título de la pestaña "Financial Overview"; línea de outcome discontinua y en la leyenda; línea del 0 % visible; los `h2` no cambian el aspecto; con Tab se llega a los gráficos con foco visible (Chrome) y las flechas mueven el tooltip. |
+| 32 | El tooltip de los gráficos se anuncia en lectores de pantalla (`role="status"`). | — | ❓ | Pendiente de la skill `accessibility`. Requiere probar con un lector de pantalla; no se ha hecho. |
+| 33 | La carga diferida de los gráficos no provoca layout shift. | commit `b96a275`, `frontend/src/App.tsx` | ✅ | Carolina, en Codespaces con red lenta: sin layout shift. |
+| 34 | La skill interna `dashboard-pre-merge-check` no inventa resultados cuando no hay Docker. | `.skills/dashboard-pre-merge-check/SKILL.md` | ✅ | Carolina la probó en una sesión de agente nueva, sin Docker: el veredicto fue NO VERIFICABLE y no inventó resultados. |
+| 35 | En Codespaces, el frontend alcanza al backend por la red de Compose (`http://backend:8000`). | `docker-compose.yml:14`, `frontend/vite.config.ts:13` | ❌ | Carolina, en Codespaces (2026-10-10/11): la red entre contenedores estaba bloqueada; `wget` a `backend:8000` desde el frontend daba timeout y la app mostraba el error de carga. **Corrección:** funcionó tras un arreglo temporal con `iptables` y `sysctl` que **no está en el repo**. No es un fallo del código, pero hay que reaplicarlo si se repite. |
 
 ## Contradicciones con el mapa anterior
 

@@ -10,22 +10,25 @@ Origen: `docs/findings.md` (DOC-1, DOC-2, DOC-5, TST-4, DX-6) → R-15, R-20, R-
 
 ## 1. Dónde está el contexto del proyecto
 
-**Por qué:** `AGENTS.md:6-15` pide leer `.agents/rules`, `.agents/skills` y `memory-bank/`. Hoy solo existe `.agents/rules`; `.agents/skills` y `memory-bank/` no existen (`docs/findings.md` DOC-2).
+**Por qué:** `AGENTS.md:6-15` pide leer `.agents/rules`, `.agents/skills` y `memory-bank/`, y los tres existen (`verification.md` #20):
+- `.agents/skills/`: skills del ecosistema (`accessibility`, `vercel-react-best-practices`, `vitest`), con su origen en `skills-lock.json`.
+- `memory-bank/`: resumen del producto, el stack, el estado actual y el progreso.
+- La skill interna `dashboard-pre-merge-check` está en `.skills/`, fuera de las rutas que cita `AGENTS.md`.
 
 **Haz**
-- Usa como contexto, además de estas reglas:
+- Usa como contexto, además de estas reglas, `.agents/skills/`, `.skills/` y `memory-bank/`, y también:
   - `docs/findings.md`, con la evidencia y los motivos de cada regla y las reglas pendientes.
   - `verification.md`, con lo que está verificado y cómo.
 - Si una regla contradice el código actual, señálalo y no la apliques a ciegas. Actualiza `docs/findings.md` con el hecho nuevo.
 
 **No hagas**
-- No inventes contenido para `skills` o `memory-bank` como si ya existieran.
+- No añadas a `memory-bank/` ni a las skills afirmaciones sin evidencia en el repo o en `verification.md`.
 
 ## 2. `verification.md` es el registro de lo verificado
 
 **Por qué:**
 - `verification.md` tiene una leyenda estricta: ✅ solo con ejecución real, "verificado por lectura (agente)" para lo leído y ❓ para lo que nadie ha comprobado.
-- Hoy los tests de backend y frontend nunca se han ejecutado (`verification.md` #21-22).
+- Hoy los tests del backend nunca se han ejecutado (`verification.md` #21); los del frontend sí se han ejecutado (`verification.md` #22).
 - No hay CI (no existe `.github/` en el repo).
 - Los comandos de test no estaban documentados (`README.md:39-50`); ahora están en `environment.md`.
 

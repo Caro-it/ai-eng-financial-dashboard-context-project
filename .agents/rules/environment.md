@@ -28,11 +28,11 @@ Origen: `docs/findings.md` (DX-1, DX-2, DX-3, DX-4, DX-5, DX-6, ARQ-12) → R-17
 
 | Acción | Comando | Estado |
 |---|---|---|
-| Levantar todo | `docker compose up --build` | ✅ en Codespaces (`verification.md` #2) |
+| Levantar todo | `docker compose up --build` | ✅ en Codespaces (`verification.md` #2). En 2026-10-10/11 la red entre contenedores necesitó un arreglo temporal fuera del repo (`verification.md` #35) |
 | Tests backend | `docker compose exec backend pytest` | ❓ sin verificar |
-| Tests frontend | `docker compose exec frontend npm run test` | ❓ sin verificar |
-| Build y typecheck frontend | `docker compose exec frontend npm run build` | ❓ sin verificar |
-| Lint frontend | `docker compose exec frontend npm run lint` | ❓ sin verificar |
+| Tests frontend | `docker compose exec frontend npm run test` | ✅ en Codespaces, por Carolina: 13 tests pasan (`verification.md` #22) |
+| Build y typecheck frontend | `docker compose exec frontend npm run build` | ✅ en Codespaces, por Carolina: sin advertencias desde `b96a275` (`verification.md` #28) |
+| Lint frontend | `docker compose exec frontend npm run lint` | ✅ en Codespaces, por Carolina: sin errores (`verification.md` #29) |
 | Reconstruir tras cambiar dependencias | `docker compose up --build -V` | ❓ sin verificar |
 
 Cuando ejecutes por primera vez un comando marcado ❓, registra el resultado en `verification.md` y actualiza esta tabla.
